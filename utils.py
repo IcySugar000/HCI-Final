@@ -9,7 +9,6 @@ def open_website(url):
 
 
 def get_weather(location):
-    print(f"假装获取{location}的信息")
     with open("config.json", "r") as f:
         key = json.load(f)['weather']['key']
 
