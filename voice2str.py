@@ -76,9 +76,12 @@ class Resolver:
         self.data = []
         self.done = False
 
-        self.wsParam = Ws_Param(APPID='492e3872',
-                                APISecret='YTcyNTRhMWQwZTM4NDI1OTg4MGRlMzZl',
-                                APIKey='afbba808b46481e054f3e2cc695068bf',
+        with open("config.json", "r") as f:
+            self.config = json.load(f)['voice2str']
+
+        self.wsParam = Ws_Param(APPID=self.config['APPID'],
+                                APISecret=self.config['APISecret'],
+                                APIKey=self.config['APIKey'],
                                 AudioFile=file_name)
         websocket.enableTrace(False)
         wsUrl = self.wsParam.create_url()

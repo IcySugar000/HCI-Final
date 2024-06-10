@@ -40,9 +40,12 @@ class LLM:
         self.tools = tools
         self.messages = [{"role": "system", "content": self.system_prompt}]
 
+        with open("config.json", "r") as f:
+            self.config = json.load(f)['chatglm']
+
         proxy_url = "http://127.0.0.1:7890"
         httpx_client = httpx.Client(proxies={"http://": proxy_url, "https://": proxy_url}, verify=False)
-        self.client = ZhipuAI(api_key="4dbf2bd2a03cfc99887c4933d97d05eb.wZf6smU1wB8F19sW", http_client=httpx_client)
+        self.client = ZhipuAI(api_key=self.config['api_key'], http_client=httpx_client)
 
     async def get_reply_async(self, messages: str):
         self.messages.append({"role": "user", "content": messages})
