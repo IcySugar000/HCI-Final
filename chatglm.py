@@ -30,6 +30,23 @@ tools = [
                 "required": ["url"],
             },
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "当用户需要查询天气时调用",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "要查询哪里的天气",
+                    },
+                },
+                "required": ["location"],
+            },
+        }
     }
 ]
 
@@ -63,6 +80,9 @@ class LLM:
             args = tool_call.function.arguments
             if tool_call.function.name == "open_website":
                 return_msg = open_website(**json.loads(args))
+                return return_msg
+            elif tool_call.function.name == "get_weather":
+                return_msg = get_weather(**json.loads(args))
                 return return_msg
         else:
             content = response.choices[0].message.content
