@@ -61,9 +61,6 @@ class Ws_Param(object):
         }
         # 拼接鉴权参数，生成url
         url = url + '?' + urlencode(v)
-        # print("date: ",date)
-        # print("v: ",v)
-        # 此处打印出建立连接时候的url,参考本demo的时候可取消上方打印的注释，比对相同参数时生成的url与自己代码生成的url是否一致
         # print('websocket url :', url)
         return url
 
@@ -127,7 +124,7 @@ class Resolver:
         return task.result()
 
     # 收到websocket消息的处理
-    def on_message(self, message):
+    def on_message(self, ws, message):
         try:
             code = json.loads(message)["code"]
             sid = json.loads(message)["sid"]
@@ -141,16 +138,16 @@ class Resolver:
             print("receive msg,but parse exception:", e)
 
     # 收到websocket错误的处理
-    def on_error(self, error):
+    def on_error(self, ws, error):
         print("### error:", error)
 
     # 收到websocket关闭的处理
-    def on_close(self, a, b):
+    def on_close(self, ws, a, b):
         pass
         # print("### closed ###")
 
     # 收到websocket连接建立的处理
-    def on_open(self):
+    def on_open(self, ws):
         # print("### opening ###")
 
         def run(*args):
@@ -212,12 +209,5 @@ def save_wav2pcm(wav_name):
 
 
 if __name__ == "__main__":
-    # 测试时候在此处正确填写相关信息即可运行
-    time1 = datetime.now()
-    # save_wav2pcm("Cappuccino.wav")
-
-    resolver = Resolver("Cappuccino_16k.mp3")
+    resolver = Resolver("output.mp3")
     print(resolver.get_str())
-
-    time2 = datetime.now()
-    print(time2-time1)
