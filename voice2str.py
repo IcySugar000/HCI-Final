@@ -75,6 +75,7 @@ class Resolver:
     def __init__(self):
         self.data = []
         self.done = False
+        self.finish = True
 
         with open("config.json", "r") as f:
             self.config = json.load(f)['voice2str']
@@ -119,18 +120,13 @@ class Resolver:
         return result
 
     def get_complete_result(self):
-        async def async_wait_for_done():
-            while not self.done:
-                await asyncio.sleep(0.04)
-            return self.get_str()
-
-        loop = asyncio.get_event_loop()
-        task = asyncio.ensure_future(async_wait_for_done())
-        loop.run_until_complete(task)
-        return task.result()
+        while not self.finish or not self.done:
+            pass
+        return self.get_str()
 
     # 收到websocket消息的处理
     def on_message(self, ws, message):
+        self.finish=False
         try:
             code = json.loads(message)["code"]
             sid = json.loads(message)["sid"]
@@ -149,7 +145,7 @@ class Resolver:
 
     # 收到websocket关闭的处理
     def on_close(self, ws, a, b):
-        pass
+        self.finish=True
         print(self.get_str())
         # print("### closed ###")
 
@@ -192,6 +188,7 @@ class Resolver:
                             }
                         }
                     status = STATUS_CONTINUE_FRAME
+                    self.finish=False
                 # 中间帧处理
                 elif status == STATUS_CONTINUE_FRAME:
                     d = {
@@ -219,6 +216,7 @@ class Resolver:
                         break
                 except websocket.WebSocketConnectionClosedException as e:
                     print("Connection closed: ", e)
+                    self.finish=True
                     break
                 # 模拟音频采样间隔
                 time.sleep(interval)

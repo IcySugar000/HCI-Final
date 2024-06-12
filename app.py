@@ -31,6 +31,7 @@ class VoiceAssistant(QMainWindow):
         
     def initUI(self):
         self.setWindowTitle('Voice Assistant')
+        self.resize(400, 600)
 
         self.gif_label = QLabel(self)
         self.set_gif("elem/ready.gif")
@@ -78,6 +79,8 @@ class VoiceAssistant(QMainWindow):
         if self.status != Status.READY:
             return
         print("start")
+        scrollbar = self.textEdit.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
         self.set_gif("elem/listening.gif")
         self.resolver = Resolver()
         self.resolver.start()
@@ -90,7 +93,7 @@ class VoiceAssistant(QMainWindow):
         print("end")
         self.resolver.done = True
         self.status = Status.PROCESSING
-        q = self.resolver.get_str()
+        q = self.resolver.get_complete_result()
         if q != "":
             self.set_gif("elem/processing.gif")
             threading.Thread(target=self.processing, args=(q,)).start()
@@ -102,8 +105,13 @@ class VoiceAssistant(QMainWindow):
             print("listening")
             time.sleep(0.4)
             text = self.resolver.get_str()
-            QTimer.singleShot(0, partial(self.textEdit.setText, self.history + "您:" + text))
-        self.history += "您:" +self.resolver.get_str() + '\n'
+            QTimer.singleShot(0, partial(self.set_text_and_scroll, self.history + "您:" + text))
+        self.history += "您:" +self.resolver.get_complete_result() + '\n'
+
+    def set_text_and_scroll(self, text):
+        self.textEdit.setText(text)
+        scrollbar = self.textEdit.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     def processing(self, q):
         self.recordButton.setDisabled(True)
@@ -116,8 +124,10 @@ class VoiceAssistant(QMainWindow):
         self.status = Status.READY
         self.textEdit.setText(self.history)
         self.recordButton.setDisabled(False)
+        scrollbar = self.textEdit.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
         self.set_gif('elem/ready.gif')
-
+        
 class CircleButton(QPushButton):
     def __init__(self, parent=None):
         super().__init__(parent)
