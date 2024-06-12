@@ -47,7 +47,7 @@ class LLM:
         # httpx_client = httpx.Client(proxies={"http://": proxy_url, "https://": proxy_url}, verify=False)
         self.client = ZhipuAI(api_key=self.config['api_key'])#, http_client=httpx_client)
 
-    async def get_reply_async(self, messages: str):
+    def get_reply(self, messages: str):
         self.messages.append({"role": "user", "content": messages})
         print(self.messages)
 
@@ -67,12 +67,6 @@ class LLM:
         else:
             content = response.choices[0].message.content
             return content
-
-    def get_reply(self, messages: str):
-        loop = asyncio.get_event_loop()
-        task = loop.create_task(self.get_reply_async(messages))
-        loop.run_until_complete(task)
-        return task.result()
 
 
 if __name__ == "__main__":

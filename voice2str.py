@@ -12,7 +12,11 @@ import ssl
 from wsgiref.handlers import format_date_time
 from datetime import datetime
 from time import mktime
-import _thread as thread
+import threading
+
+import pyaudio
+from pydub import AudioSegment
+from io import BytesIO
 
 import numpy as np
 
@@ -23,16 +27,15 @@ STATUS_LAST_FRAME = 2  # 最后一帧的标识
 
 class Ws_Param(object):
     # 初始化
-    def __init__(self, APPID, APIKey, APISecret, AudioFile):
+    def __init__(self, APPID, APIKey, APISecret):
         self.APPID = APPID
         self.APIKey = APIKey
         self.APISecret = APISecret
-        self.AudioFile = AudioFile
 
         # 公共参数(common)
         self.CommonArgs = {"app_id": self.APPID}
         # 业务参数(business)，更多个性化参数可在官网查看
-        self.BusinessArgs = {"domain": "iat", "language": "zh_cn", "accent": "mandarin", "vinfo":1,"vad_eos":10000, "dwa":"wpgs"}
+        self.BusinessArgs = {"domain": "iat", "language": "zh_cn", "accent": "mandarin", "vinfo": 1,"vad_eos":10000, "dwa":"wpgs"}
 
     # 生成url
     def create_url(self):
@@ -69,7 +72,7 @@ class Resolver:
     """
     用于解析/整合WebSocket信息
     """
-    def __init__(self, file_name):
+    def __init__(self):
         self.data = []
         self.done = False
 
@@ -78,14 +81,17 @@ class Resolver:
 
         self.wsParam = Ws_Param(APPID=self.config['APPID'],
                                 APISecret=self.config['APISecret'],
-                                APIKey=self.config['APIKey'],
-                                AudioFile=file_name)
+                                APIKey=self.config['APIKey'])
         websocket.enableTrace(False)
         wsUrl = self.wsParam.create_url()
         self.ws = websocket.WebSocketApp(wsUrl, on_message=self.on_message, on_error=self.on_error, on_close=self.on_close)
         self.ws.on_open = self.on_open
-        self.ws.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE})
 
+    def start(self):
+        ws_thread = threading.Thread(target=self.ws.run_forever, kwargs={"sslopt": {"cert_reqs": ssl.CERT_NONE}})
+        ws_thread.daemon = True
+        ws_thread.start()
+        
     def transfer_msg_to_list(self, msg):
         new_data = []
         for i in msg["ws"]:
@@ -144,6 +150,7 @@ class Resolver:
     # 收到websocket关闭的处理
     def on_close(self, ws, a, b):
         pass
+        print(self.get_str())
         # print("### closed ###")
 
     # 收到websocket连接建立的处理
@@ -155,44 +162,72 @@ class Resolver:
             interval = 0.04  # 发送音频间隔(单位:s)
             status = STATUS_FIRST_FRAME  # 音频的状态信息，标识音频是第一帧，还是中间帧、最后一帧
 
-            with open(self.wsParam.AudioFile, "rb") as fp:
-                while True:
-                    buf = fp.read(frameSize)
-                    # 文件结束
-                    if not buf:
-                        status = STATUS_LAST_FRAME
-                    # 第一帧处理
-                    # 发送第一帧音频，带business 参数
-                    # appid 必须带上，只需第一帧发送
+            p=pyaudio.PyAudio()
+            stream = p.open(format=pyaudio.paInt16,
+                    channels=1,
+                    rate=16000,
+                    input=True,
+                    frames_per_buffer=frameSize)
+
+            while True:
+                buf = stream.read(frameSize)
+
+                # 文件结束
+                if not buf or self.done:
                     if status == STATUS_FIRST_FRAME:
-
-                        d = {"common": self.wsParam.CommonArgs,
-                             "business": self.wsParam.BusinessArgs,
-                             "data": {"status": 0, "format": "audio/L16;rate=16000",
-                                      "audio": str(base64.b64encode(buf), 'utf-8'),
-                                      "encoding": "lame"}}
-                        d = json.dumps(d)
-                        self.ws.send(d)
-                        status = STATUS_CONTINUE_FRAME
-                    # 中间帧处理
-                    elif status == STATUS_CONTINUE_FRAME:
-                        d = {"data": {"status": 1, "format": "audio/L16;rate=16000",
-                                      "audio": str(base64.b64encode(buf), 'utf-8'),
-                                      "encoding": "lame"}}
-                        self.ws.send(json.dumps(d))
-                    # 最后一帧处理
-                    elif status == STATUS_LAST_FRAME:
-                        d = {"data": {"status": 2, "format": "audio/L16;rate=16000",
-                                      "audio": str(base64.b64encode(buf), 'utf-8'),
-                                      "encoding": "lame"}}
-                        self.ws.send(json.dumps(d))
-                        # time.sleep(1)
                         break
-                    # 模拟音频采样间隔
-                    time.sleep(interval)
+                    status = STATUS_LAST_FRAME
+                # 第一帧处理
+                # 发送第一帧音频，带business 参数
+                # appid 必须带上，只需第一帧发送
+                if status == STATUS_FIRST_FRAME:
+                    d = {
+                            "common": self.wsParam.CommonArgs,
+                            "business": self.wsParam.BusinessArgs,
+                            "data": {
+                                "status": 0,
+                                "format": "audio/L16;rate=16000",
+                                "audio": str(base64.b64encode(buf), 'utf-8'),
+                                "encoding": "raw"
+                            }
+                        }
+                    status = STATUS_CONTINUE_FRAME
+                # 中间帧处理
+                elif status == STATUS_CONTINUE_FRAME:
+                    d = {
+                            "data": {
+                                "status": 1, 
+                                "format": "audio/L16;rate=16000",
+                                "audio": str(base64.b64encode(buf), 'utf-8'),
+                                "encoding": "raw"
+                            }
+                        }
+                # 最后一帧处理
+                elif status == STATUS_LAST_FRAME:
+                    d = {
+                            "data": {
+                                "status": 2, 
+                                "format": "audio/L16;rate=16000",
+                                "audio": str(base64.b64encode(buf), 'utf-8'),
+                                "encoding": "raw"
+                            }
+                        }
+                # 发送数据包
+                try:
+                    ws.send(json.dumps(d))
+                    if status == STATUS_LAST_FRAME:
+                        break
+                except websocket.WebSocketConnectionClosedException as e:
+                    print("Connection closed: ", e)
+                    break
+                # 模拟音频采样间隔
+                time.sleep(interval)
 
-        thread.start_new_thread(run, ())
+            stream.stop_stream()
+            stream.close()
+            p.terminate()
 
+        threading.Thread(target=run, args=(ws,)).start()
 
 def wav2pcm(wavfile, pcmfile, data_type=np.int16):
     f = open(wavfile, "rb")
@@ -209,5 +244,5 @@ def save_wav2pcm(wav_name):
 
 
 if __name__ == "__main__":
-    resolver = Resolver("output.mp3")
+    resolver = Resolver("test.mp3")
     print(resolver.get_str())
