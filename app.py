@@ -122,7 +122,7 @@ class CircleButton(QPushButton):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
-        self._color = QColor("#FFFF00")
+        self._color = QColor("#3333FF")
         
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -133,13 +133,13 @@ class CircleButton(QPushButton):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self._color = QColor("#FF8000")
+            self._color = QColor("#0000CC")
             self.update()
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self._color = QColor("#FFFF00")
+            self._color = QColor("#3333FF")
             self.update()
         super().mouseReleaseEvent(event)
 
