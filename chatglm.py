@@ -4,7 +4,9 @@ import asyncio
 from zhipuai import ZhipuAI
 from utils import *
 
-base_prompt = """你是一个语音助手，你的用户群体是同济大学的大学生，你需要根据用户的需求来进行回复，帮其完成相应任务
+base_prompt = """你是一个语音助手，你的用户群体是同济大学的大学生，你需要根据用户的需求来进行回复，帮其完成相应任务。
+
+你要保持精简的回答方式，回答不要超过50个字。
 
 这里是一些必要的信息，在用户需要时你可以提供：
 1系统网址：1.tongji.edu.cn
